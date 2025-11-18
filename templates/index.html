@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>My Blockchain - Live on Render</title>
+<style>
+  body { font-family: Arial; background: #0f0f1a; color: #e0e0ff; margin: 0; padding: 20px; }
+  h1 { text-align: center; color: #00ff9d; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  .panel { background: #1a1a2e; padding: 20px; border-radius: 12px; margin: 20px 0; }
+  input, button { padding: 12px; margin: 8px 0; border: none; border-radius: 8px; }
+  input { background: #16213e; color: white; width: 100%; }
+  button { background: #00ff9d; color: black; font-weight: bold; cursor: pointer; }
+  button:disabled { background: #555; }
+  .block { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 5px solid #00ff9d; }
+  .hash { font-family: monospace; color: #00ff9d; font-size: 0.9em; }
+  .tx { background: #0f1b2e; padding: 8px; margin: 5px 0; border-radius: 6px; }
+  #status { text-align: center; font-weight: bold; padding: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>My Blockchain</h1>
+  <p style="text-align:center">Live on Render.com • Real Python Backend • Proof-of-Work Mining</p>
+
+  <div class="panel">
+    <h2>Create Transaction</h2>
+    <input type="text" id="from" placeholder="From (e.g. alice)" value="alice">
+    <input type="text" id="to" placeholder="To (e.g. bob)">
+    <input type="number" id="amount" placeholder="Amount" value="10" step="0.01">
+    <button onclick="addTx()">Add Transaction</button>
+  </div>
+
+  <div class="panel">
+    <h2>Pending (<span id="count">0</span>)</h2>
+    <div id="pending"></div>
+    <button onclick="mine()" id="mineBtn">Mine Block</button>
+  </div>
+
+  <div class="panel">
+    <h2>Blockchain <span id="status"></span></h2>
+    <div id="chain"></div>
+  </div>
+</div>
+
+<script>
+async function load() {
+  const chain = await (await fetch("/chain")).json();
+  const pending = await (await fetch("/pending")).json();
+  
+  document.getElementById("count").textContent = pending.length;
+  document.getElementById("pending").innerHTML = pending.length === 0 
+    ? "<i>No pending transactions</i>"
+    : pending.map(t => `<div class="tx">${t.from_address} → ${t.to_address}: ${t.amount}</div>`).join("");
+
+  document.getElementById("chain").innerHTML = chain.map(b => `
+    <div class="block">
+      <strong>Block #${b.index}</strong> ${b.index===0?"(Genesis)":""}<br>
+      <span class="hash">${b.hash}</span><br>
+      Prev: ${b.previous_hash.slice(0,16)}...<br>
+      Nonce: ${b.nonce}<br>
+      ${b.transactions.map(t => `
+        <div class="tx">${t.from_address} → ${t.to_address}: <strong>${t.amount}</strong></div>
+      `).join("")}
+    </div>
+  `).join("");
+}
+
+async function addTx() {
+  const data = {
+    from: document.getElementById("from").value,
+    to: document.getElementById("to").value,
+    amount: parseFloat(document.getElementById("amount").value)
+  };
+  await fetch("/transaction", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+  load();
+}
+
+async function mine() {
+  document.getElementById("mineBtn").disabled = true;
+  document.getElementById("status").textContent = "Mining on server...";
+  const res = await fetch("/mine", {method: "POST"});
+  const json = await res.json();
+  document.getElementById("status").textContent = json.success ? "Block mined!" : json.message;
+  document.getElementById("mineBtn").disabled = false;
+  load();
+}
+
+setInterval(load, 3000);
+load();
+</script>
+</body>
+</html>
